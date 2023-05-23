@@ -1,0 +1,298 @@
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <meta http-equiv='cache-control' content='no-cache'>
+    <meta http-equiv='expires' content='0'>
+    <meta http-equiv='pragma' content='no-cache'>
+    <title>Visualize points with a heatmap | Sample | ArcGIS Maps SDK for JavaScript 4.26</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.26/esri/themes/light/main.css" />
+    
+
+    <style>
+      html,
+      body,
+      #viewDiv {
+        padding: 0;
+        margin: 0;
+        height: 70vh;
+        width: 100%;
+      }
+    </style>
+
+    <script type="text/javascript">
+      function deleteElement_(id){
+        document.getElementById(id).remove();
+      }
+      const createElement = function (osmid, name, specialities){
+        if (!osmid){osmid=""}
+        if (!name){name=""}
+        if (!specialities){specialities=""}
+        // Create a form dynamically
+        var form = document.createElement("form");
+        form.setAttribute("id", 'set-attributes');
+        form.setAttribute("method", "post");
+        form.setAttribute("action", "/post");
+
+        // Create an input element for Full Name
+        var elemOsmid = document.createElement("input");
+        elemOsmid.className = "form-control";
+        elemOsmid.setAttribute("type", "text");
+        elemOsmid.setAttribute("value", "osmid: "+ osmid); 
+        elemOsmid.readOnly = true;
+        elemOsmid.setAttribute("id", "form-osmid");
+        elemOsmid.setAttribute("name", "form-osmid");
+        
+
+        var FN = document.createElement("input");
+        FN.setAttribute("type", "text");
+        FN.setAttribute("id", "form-name");
+        FN.setAttribute("name", "form-name");
+        FN.setAttribute("value", name);
+        FN.className = "form-control";
+
+        var FN2 = document.createElement("input");
+        FN2.setAttribute("type", "text");
+        FN2.setAttribute("value", specialities);
+        FN2.setAttribute("id", "form-specialities");
+        FN2.setAttribute("name", "form-specialities");
+        FN2.className = "form-control";
+        
+        // create a submit button
+        var s = document.createElement("input");
+        s.setAttribute("type", "submit");
+        s.setAttribute("value", "Изменить");
+        s.className = "form-control";
+          
+        form.appendChild(elemOsmid);
+        form.appendChild(FN);
+        form.appendChild(FN2);
+        form.appendChild(s);
+
+        document.getElementById("form-container").className = "form-group";
+        document.getElementById("form-container").appendChild(form);
+      }
+    </script>
+
+    
+    
+  </head>
+
+  <body>
+    <div class="container-fluid flex-column">
+        <div class="row" style="height:100%;">
+            <div class="col-8">
+                <div id="viewDiv"></div>
+                <form method="post", action="/create">
+              
+                    <div class="form-check col-8 mt-5">
+                      <div class="mb-3">
+                        <label for="latitude" class="form-label">latitude</label>
+                        <input type="number" class="form-control" name="latitude-form">
+                      </div>
+      
+                      <div class="mb-3">
+                        <label for="longitude" class="form-label">longitude</label>
+                        <input type="number" class="form-control" name="longitude-form">
+                      </div>
+      
+                      <div class="mb-3">
+                        <label for="name" class="form-label">name</label>
+                        <input type="text" class="form-control" name="name-form">
+                      </div>
+      
+                      <div class="mb-3">
+                        <label for="specialities" class="form-label">specialities</label>
+                        <input type="text" class="form-control" name="specialities-form">
+                      </div>
+                      
+                      <button type="submit" class="btn btn-primary mt-4">создать клинику</button>
+                    </div>
+                    
+                </form>
+                
+            </div>
+            <div class="col container mt-5">
+                <form method="post">
+                    {% for i in checkboxes %}
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" value={{ i }} name="specialities">
+                        <label class="form-check-label" for="flexCheckDefault">
+                            {{ i }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary mt-4">Применить фильтры</button>
+                </form>
+                <div id="form-container"></div>
+            </div>
+        </div>
+        
+        
+    </div>
+    <script src="https://js.arcgis.com/4.26/"></script>
+    <script type="text/javascript">
+      require([
+        "esri/Map", 
+        "esri/layers/GeoJSONLayer", 
+        "esri/views/MapView", 
+        "esri/widgets/Legend", 
+        "esri/core/reactiveUtils",
+        "esri/popup/content/TextContent"
+        
+    ], (Map,
+        GeoJSONLayer,
+        MapView,
+        Legend,
+        reactiveUtils,
+        TextContent
+      ) => {
+        
+        const editThisAction = {
+          title: "Edit",
+          id: "edit-this",
+          className: "esri-icon-edit"
+        };
+
+        const markThisAction = {
+          title: "Mark",
+          id: "mark-this",
+          className: "esri-icon-arrow-down"
+        };
+
+        const template = {
+          title: "{name}",
+          content: `<ul><li>адрес: {'addr:street'} {'addr:housenumber'}; 
+          <li>специализации: {'healthcare:speciality'};
+          <li>веб-сайт: {'contact:website'};</ul>`,
+          outFields : ["*"],
+          actions: [editThisAction, markThisAction]
+        };
+
+        
+
+      
+
+        const renderer = {
+          type: "heatmap",
+          colorStops: [
+            { color: "rgba(63, 40, 102, 0)", ratio: 0 },
+            { color: "#472b77", ratio: 0.083 },
+            { color: "#4e2d87", ratio: 0.166 },
+            { color: "#563098", ratio: 0.249 },
+            { color: "#5d32a8", ratio: 0.332 },
+            { color: "#6735be", ratio: 0.415 },
+            { color: "#7139d4", ratio: 0.498 },
+            { color: "#7b3ce9", ratio: 0.581 },
+            { color: "#853fff", ratio: 0.664 },
+            { color: "#a46fbf", ratio: 0.747 },
+            { color: "#c29f80", ratio: 0.83 },
+            { color: "#e0cf40", ratio: 0.913 },
+            { color: "#ffff00", ratio: 1 }
+          ],
+          maxDensity: 0.01,
+          minDensity: 0
+        };
+
+        // create a geojson layer from geojson feature collection
+        const geojson =  {{ data }};
+
+        // create a new blob from geojson featurecollection
+        const blob = new Blob([JSON.stringify(geojson)], {
+          type: "application/json"
+        });
+
+        // URL reference to the blob
+        
+        const url = URL.createObjectURL(blob);
+        // create new geojson layer using the blob url
+        const layer = new GeoJSONLayer({
+            url: url, 
+            title: "Magnitude 2.5+ earthquakes from the last week",
+            popupTemplate: template,
+            renderer: renderer,
+        });
+        
+        const mark_render = {
+          type: "simple",
+          symbol: {
+            color: "#FF0000",
+            type: "simple-marker"
+          },
+        }
+
+        // create a geojson layer from geojson feature collection
+        const mark_geojson =  {{ mark_data }};
+
+        // create a new blob from geojson featurecollection
+        const mark_blob = new Blob([JSON.stringify(mark_geojson)], {
+          type: "application/json"
+        });
+
+        // URL reference to the blob
+        
+        const mark_url = URL.createObjectURL(mark_blob);
+        // create new geojson layer using the blob url
+        const mark_layer = new GeoJSONLayer({
+            url: mark_url, 
+            renderer: mark_render
+        });
+
+        const map = new Map({
+          basemap: "gray-vector",
+          layers: [layer, mark_layer]
+        });
+
+        const view = new MapView({
+          container: "viewDiv",
+          center: [55, 35],
+          zoom: 2,
+          map: map
+        });
+
+
+
+        view.when(() => {
+          // Create the Editor with the specified layer and a list of field configurations
+          
+
+          
+
+          // Event handler that fires each time an action is clicked
+          view.popup.on("trigger-action", (event) => {
+            
+            //CREATE FORM IN HTML
+            if (event.action.id === "edit-this") {
+              
+              const element_ = document.getElementById("set-attributes");
+              if (element_){
+                deleteElement_('set-attributes')
+                createElement(''+view.popup.selectedFeature.attributes.osmid, 
+                view.popup.selectedFeature.attributes.name, 
+                view.popup.selectedFeature.attributes.specialities)
+              } else{
+                createElement(''+view.popup.selectedFeature.attributes.osmid, 
+                view.popup.selectedFeature.attributes.name, 
+                view.popup.selectedFeature.attributes.specialities)
+              }
+              view.popup.close();
+            }
+            if (event.action.id === "mark-this") {
+              fetch(document.URL+'mark', {
+                method: 'POST',
+                body: JSON.stringify({ "osmid": view.popup.selectedFeature.attributes.osmid })
+              })
+              view.popup.close();
+            }
+          });
+
+        });
+
+       
+
+      });
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-GLhlTQ8iRABdZLl6O3oVMWSktQOp6b7In1Zl3/Jr59b6EGGoI1aFkw7cmDA6j6gD" crossorigin="anonymous">
+
+  </body>
+</html>
